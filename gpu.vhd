@@ -57,9 +57,10 @@ architecture behavioral of gpu is
     signal m_point_down_right   : unsigned(18 downto 0);
     signal m_curr_point         : unsigned(18 downto 0);
     
+    signal m_data_ready         : std_logic;
     signal m_data_prepared      : std_logic_vector(m_data_witdh - 1 downto 0);
     
-    signal m_vram_addres : std_logic_vector(19 downto 0);
+--    signal m_vram_addres : std_logic_vector(19 downto 0);
     
     type state_t is (idle, read_word, read_delay, write_word);
 
@@ -75,12 +76,6 @@ architecture behavioral of gpu is
         m_address <= address;
     end procedure;
     
-        procedure avalon_master_read
-        (address    : in std_logic_vector(m_address_width - 1 downto 0)) is
-    begin
-        m_read <= '1';
-        m_address <= address;
-    end procedure;
 
 begin
 
@@ -166,28 +161,31 @@ begin
                 m_prev_state <= idle;
                 m_busy_flag <= '0';
                 m_point_up_left <= (others => '0');
+                m_point_up_right <= (others => '0');
+                m_point_down_left <= (others => '0');
                 m_point_down_right <= (others => '0');
+                m_curr_point <= (others => '0');
+                m_data_ready <= '0';
+                m_data_prepared <= (others => '0');
             else
                 case m_curr_state is
                     when idle =>
                         if slv_flag_register(0) = '1' then
-                            if unsigned(slv_point_up_left)(31 downto 16) < screen_width and
-                                unsigned(slv_point_up_left)(15 downto 0) < screen_height and
-                                unsigned(slv_point_down_right)(31 downto 16) < screen_width and
-                                unsigned(slv_point_down_right)(15 downto 0) < screen_height then
-                                if unsigned(slv_point_up_left)(31 downto 16) < unsigned(slv_point_down_right)(31 downto 16) and
-                                    unsigned(slv_point_up_left)(15 downto 0) < unsigned(slv_point_down_right)(15 downto 0) then
+                            if unsigned(slv_point_up_left(31 downto 16)) < screen_width and
+                                unsigned(slv_point_up_left(15 downto 0)) < screen_height and
+                                unsigned(slv_point_down_right(31 downto 16)) < screen_width and
+                                unsigned(slv_point_down_right(15 downto 0)) < screen_height then
+                                if unsigned(slv_point_up_left(31 downto 16)) < unsigned(slv_point_down_right(31 downto 16)) and
+                                    unsigned(slv_point_up_left(15 downto 0)) < unsigned(slv_point_down_right(15 downto 0)) then
                                         m_busy_flag <= '1';
-                                        m_point_up_left <= to_unsigned(screen_width, 10) * resize((unsigned(slv_point_up_left(25 downto 16))), 9) + resize(unsigned(slv_point_up_left)(15 downto 0), 19);
-                                        m_point_up_right <= to_unsigned(screen_width, 10) * resize((unsigned(slv_point_up_left(25 downto 16))), 9) + resize(unsigned(slv_point_down_right)(15 downto 0), 19);
-                                        m_point_down_left <= to_unsigned(screen_width, 10) * resize((unsigned(slv_point_down_right(25 downto 16))), 9) + resize(unsigned(slv_point_up_left)(15 downto 0), 19);
-                                        m_point_down_right <= to_unsigned(screen_width, 10) * resize((unsigned(slv_point_down_right(25 downto 16))), 9) + resize(unsigned(slv_point_down_right)(15 downto 0), 19);
+                                        m_point_up_left <= to_unsigned(screen_width, 10) * resize((unsigned(slv_point_up_left(25 downto 16))), 9) + resize(unsigned(slv_point_up_left(15 downto 0)), 19);
+                                        m_point_up_right <= to_unsigned(screen_width, 10) * resize((unsigned(slv_point_up_left(25 downto 16))), 9) + resize(unsigned(slv_point_down_right(15 downto 0)), 19);
+                                        m_point_down_left <= to_unsigned(screen_width, 10) * resize((unsigned(slv_point_down_right(25 downto 16))), 9) + resize(unsigned(slv_point_up_left(15 downto 0)), 19);
+                                        m_point_down_right <= to_unsigned(screen_width, 10) * resize((unsigned(slv_point_down_right(25 downto 16))), 9) + resize(unsigned(slv_point_down_right(15 downto 0)), 19);
                                         if slv_point_up_left(4 downto 0) = "00000" then
                                             m_curr_state <= write_word;
-                                            m_prev_state <= m_curr_state;
                                         else
                                             m_curr_state <= read_word;
-                                            m_prev_state <= m_curr_state;
                                         end if;
                                         m_curr_point <= m_point_up_left;
                                 end if;
@@ -200,61 +198,57 @@ begin
                         else
                             m_data_prepared <= (to_integer(m_point_up_right) downto 0 => '1', others => '0');
                         end if;
-                        avalon_master_read(std_logic_vector(m_curr_point(18 downto 3)));
-                        m_prev_state <= m_curr_state;
+--                        avalon_master_read(std_logic_vector(m_curr_point(18 downto 3)));
+                        m_read <= '1';
+                        m_address <= std_logic_vector(m_curr_point(18 downto 3));
                         m_curr_state <= read_delay;
 
                     when read_delay =>
-                        m_prev_state <= m_curr_state;
+                        m_read <= '0';
                         m_curr_state <= write_word;
                         
                     when write_word =>
-                        if m_prev_state = idle or m_prev_state = write_word then
-                            if m_curr_point(4 downto 0) /= "00000" then
-                                m_prev_state <= m_curr_state;
-                                m_curr_state <= read_word;
-                            elsif (m_point_up_right - m_curr_point > 31) then
+                        if m_curr_point(4 downto 0) = "00000" then
+                            if (m_point_up_right - m_curr_point > 31) then
                                 avalon_master_write((others => '1'), std_logic_vector(m_curr_point(18 downto 3)));
                                 m_curr_point <= m_curr_point + 32;
-                                m_prev_state <= m_curr_state;
                                 m_curr_state <= write_word;
                             elsif (m_point_up_right - m_curr_point = 31) then
                                 avalon_master_write((others => '1'), std_logic_vector(m_curr_point(18 downto 3)));
-                                if m_point_up_right = m_point_down_right then
-                                    m_prev_state <= m_curr_state;
-                                    m_curr_state <= idle;
-                                    m_busy_flag <= '0';
-                                else
-                                    m_curr_point <= m_Point_up_left + 640;
-                                    m_point_up_right <= m_point_up_right + 640;
-                                    m_point_up_left <= m_point_up_left + 640;
-                                    m_prev_state <= m_curr_state;
-                                    m_curr_state <= write_word;
-                                end if;
                             else
-                                m_prev_state <= m_curr_state;
-                                m_curr_state <= read_word;
+                                if (m_data_ready = '1') then
+--                                    avalon_master_write;
+                                else
+                                    m_curr_state <= read_word;
+                                end if;
                             end if;
-                               
+                            
+                            if m_point_up_right = m_point_down_right then
+                                m_curr_state <= idle;
+                                m_busy_flag <= '0';
+                            else
+                                m_curr_point <= m_Point_up_left + 640;
+                                m_point_up_right <= m_point_up_right + 640;
+                                m_point_up_left <= m_point_up_left + 640;
+                                m_curr_state <= write_word;
+                            end if;
+                      
                         else
                             if (m_point_up_right - m_curr_point > 31) then
                                 avalon_master_write(m_readdata or m_data_prepared, std_logic_vector(m_curr_point(18 downto 3)));
                                 m_curr_point <= (m_curr_point(18 downto 3) & "000") + 32;
-                                m_prev_state <= m_curr_state;
                                 m_curr_state <= write_word;
                             elsif (m_point_up_right - m_curr_point = 31) then
 
                             else
                                 avalon_master_write(m_readdata or m_data_prepared, std_logic_vector(m_curr_point(18 downto 3)));
                                 if m_point_up_right = m_point_down_right then
-                                    m_prev_state <= m_curr_state;
                                     m_curr_state <= idle;
                                     m_busy_flag <= '0';
                                 else
                                     m_curr_point <= m_Point_up_left + 640;
                                     m_point_up_right <= m_point_up_right + 640;
                                     m_point_up_left <= m_point_up_left + 640;
-                                    m_prev_state <= m_curr_state;
                                     m_curr_state <= write_word;
                                 end if;
                             end if;  
