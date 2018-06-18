@@ -17,7 +17,7 @@ entity gpu is
     (
         --Avalon MM Slave interface
         slv_clock       : in std_logic;
-        slv_resetn      : in std_logic;
+        slv_reset      : in std_logic;
             
         slv_read        : in std_logic;
         slv_write       : in std_logic;
@@ -71,7 +71,7 @@ begin
 
     begin
         if rising_edge(slv_clock) then
-            if slv_resetn = '1' then
+            if slv_reset = '1' then
                 slv_point_up_left <= (others => '0');
                 slv_point_down_right <= (others => '0');
                 slv_flag_register(15 downto 0) <= (others => '0');

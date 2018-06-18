@@ -28,7 +28,7 @@ add wave -noupdate /tb_gpu/uut/m_data_prepared
 add wave -noupdate /tb_gpu/uut/m_curr_state
 
 add wave -noupdate /tb_gpu/uut/slv_clock
-add wave -noupdate /tb_gpu/uut/slv_resetn
+add wave -noupdate /tb_gpu/uut/slv_reset
 add wave -noupdate /tb_gpu/uut/slv_read
 add wave -noupdate /tb_gpu/uut/slv_write
 add wave -noupdate /tb_gpu/uut/slv_address

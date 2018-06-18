@@ -30,7 +30,7 @@ architecture tb_arch of tb_gpu is
 		slv_clock : in std_logic;
 		slv_read : in std_logic;
 		slv_readdata : out std_logic_vector(31 downto 0);
-		slv_resetn : in std_logic;
+		slv_reset : in std_logic;
 		slv_write : in std_logic;
 		slv_writedata : in std_logic_vector(31 downto 0)
 		);
@@ -55,7 +55,7 @@ architecture tb_arch of tb_gpu is
 	signal slv_byteenable   : std_logic_vector(3 downto 0);
 	signal slv_clock        : std_logic;
 	signal slv_read         : std_logic;
-	signal slv_resetn       : std_logic;
+	signal slv_reset       : std_logic;
 	signal slv_write        : std_logic;
 	signal slv_writedata    : std_logic_vector(31 downto 0);
 
@@ -86,7 +86,7 @@ begin
 			slv_clock => slv_clock,
 			slv_read => slv_read,
 			slv_readdata => slv_readdata,
-			slv_resetn => slv_resetn,
+			slv_reset => slv_reset,
 			slv_write => slv_write,
 			slv_writedata => slv_writedata
 		);
@@ -131,7 +131,7 @@ begin
             write(l, string'("----Init_slave----" & to_string(now, UNIT => ns)));
             writeline(output, l);
             m_reset <= '0';
-            slv_resetn <= '0';
+            slv_reset <= '0';
             slv_read <= '0';
             slv_write <= '0';
             slv_address <= (others => '0');
@@ -148,10 +148,10 @@ begin
             wait until falling_edge(clk);
             m_reset <= '0';
             m_reset <= '1';
-            slv_resetn <= '1';
+            slv_reset <= '1';
             wait until falling_edge(clk);
             m_reset <= '0';
-            slv_resetn <= '0';
+            slv_reset <= '0';
         end test_reset;
         
         procedure test_slv_write
