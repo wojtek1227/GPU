@@ -66,6 +66,7 @@ architecture behavioral of gpu is
 begin
 
     slv_flag_register(16) <= m_busy_flag;
+    
     slave_registers: process(slv_clock)
 
     begin
@@ -73,6 +74,8 @@ begin
             if slv_resetn = '1' then
                 slv_point_up_left <= (others => '0');
                 slv_point_down_right <= (others => '0');
+                slv_flag_register(15 downto 0) <= (others => '0');
+                slv_readdata <= (others => '0');
             else
                 if slv_write = '1' then
                     if slv_address = "00" then
@@ -118,7 +121,7 @@ begin
                         end if;
                     end if;
                 else
-                    if m_busy_flag = '0' then
+                    if m_busy_flag = '1' then
                         slv_flag_register(0) <= '0';
                     end if;
                 end if;
@@ -141,8 +144,14 @@ begin
     begin
         if rising_edge(m_clock) then
             if m_reset = '1' then
+                m_read <= '0';
+                m_write <= '0';
+                m_address <= (others => '0');
+                m_writedata <= (others => '0');
+                
                 m_curr_state <= idle;
                 m_busy_flag <= '0';
+                slv_flag_register(31 downto 17) <= (others => '0');
                 m_point_up_left <= (others => '0');
                 m_point_up_right <= (others => '0');
                 m_point_down_right <= (others => '0');
@@ -158,10 +167,11 @@ begin
                                 unsigned(slv_point_up_left(15 downto 0)) < screen_height and
                                 unsigned(slv_point_down_right(31 downto 16)) < screen_width and
                                 unsigned(slv_point_down_right(15 downto 0)) < screen_height then
-                                if unsigned(slv_point_up_left(31 downto 16)) < unsigned(slv_point_down_right(31 downto 16)) and
+                                if unsigned(slv_point_up_left(31 downto 16)) <= unsigned(slv_point_down_right(31 downto 16)) and
                                     unsigned(slv_point_up_left(15 downto 0)) < unsigned(slv_point_down_right(15 downto 0)) then
                                         m_busy_flag <= '1';
                                         m_point_up_left <= to_unsigned(screen_width, 10) * resize((unsigned(slv_point_up_left(25 downto 16))), 9) + resize(unsigned(slv_point_up_left(15 downto 0)), 19);
+                                        m_curr_point <= to_unsigned(screen_width, 10) * resize((unsigned(slv_point_up_left(25 downto 16))), 9) + resize(unsigned(slv_point_up_left(15 downto 0)), 19);
                                         m_point_up_right <= to_unsigned(screen_width, 10) * resize((unsigned(slv_point_up_left(25 downto 16))), 9) + resize(unsigned(slv_point_down_right(15 downto 0)), 19);
                                         m_point_down_right <= to_unsigned(screen_width, 10) * resize((unsigned(slv_point_down_right(25 downto 16))), 9) + resize(unsigned(slv_point_down_right(15 downto 0)), 19);
                                         if slv_point_up_left(4 downto 0) = "00000" then
@@ -169,7 +179,6 @@ begin
                                         else
                                             m_curr_state <= read_word;
                                         end if;
-                                        m_curr_point <= m_point_up_left;
                                 end if;
                             end if;
                         end if;
@@ -177,7 +186,7 @@ begin
                     when read_word =>
                         m_write <= '0';
                         if (m_point_up_right - m_curr_point >= 31) then
-                            for i in 0 to 2**(m_data_witdh - 1) loop
+                            for i in 0 to 31 loop
                                 if i >= to_integer(m_curr_point(4 downto 0)) then
                                     m_data_prepared(i) <= '1';
                                 else
@@ -185,7 +194,7 @@ begin
                                 end if;
                             end loop;
                         else
-                            for i in 0 to 2**(m_data_witdh - 1) loop
+                            for i in 0 to 31 loop
                                 if (i <= to_integer(m_point_up_right(4 downto 0))) and (i >= to_integer(m_curr_point(4 downto 0))) then
                                     m_data_prepared(i) <= '1';
                                 else
