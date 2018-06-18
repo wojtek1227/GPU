@@ -1,5 +1,5 @@
 
--- vhdl test bench template for design  :  tested_entity
+-- vhdl test bench template for design  :  gpu
 -- 
 -- simulation tool : modelsim-altera (vhdl)
 -- 
@@ -68,17 +68,7 @@ architecture tb_arch of tb_gpu is
 	signal m_write          : std_logic;
 	signal m_read           : std_logic;
     
-
-
-    
 	signal end_sim: boolean := false;
-	
-	--procedures
-    
-
-	
-	
-	
 	
 begin
 		uut : gpu
@@ -102,11 +92,9 @@ begin
 		);
 		
         
-    
-
-	
     m_clock <= clk;
     slv_clock <= clk;
+    
     
     stimulus : process 
     
