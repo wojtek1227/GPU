@@ -53,32 +53,19 @@ architecture behavioral of gpu is
     signal m_busy_flag          : std_logic;
     signal m_point_up_left      : unsigned(18 downto 0);
     signal m_point_up_right     : unsigned(18 downto 0);
-    signal m_point_down_left    : unsigned(18 downto 0);
     signal m_point_down_right   : unsigned(18 downto 0);
     signal m_curr_point         : unsigned(18 downto 0);
     
     signal m_data_ready         : std_logic;
     signal m_data_prepared      : std_logic_vector(m_data_witdh - 1 downto 0);
-    
---    signal m_vram_addres : std_logic_vector(19 downto 0);
-    
+        
     type state_t is (idle, read_word, read_delay, write_word);
 
     signal m_curr_state : state_t;
-    signal m_prev_state : state_t;
     
-    procedure avalon_master_write
-        (data       : in std_logic_vector(m_data_witdh - 1 downto 0);
-         address    : in std_logic_vector(m_address_width - 1 downto 0)) is
-    begin
-        m_write <= '1';
-        m_writedata <= data;
-        m_address <= address;
-    end procedure;
-    
-
 begin
 
+    slv_flag_register(16) <= m_busy_flag;
     slave_registers: process(slv_clock)
 
     begin
@@ -130,7 +117,10 @@ begin
                             slv_flag_register(15 downto 8) <= slv_writedata(15 downto 8);
                         end if;
                     end if;
-
+                else
+                    if m_busy_flag = '0' then
+                        slv_flag_register(0) <= '0';
+                    end if;
                 end if;
                 
                 if slv_read = '1' then
@@ -140,12 +130,6 @@ begin
                         slv_readdata <= slv_point_down_right;
                     elsif slv_address = "10" then
                         slv_readdata <= slv_flag_register;
-                    end if;
-                end if;
-                
-                if slv_write = '0' then
-                    if m_busy_flag = '0' then
-                        slv_flag_register(0) <= '0';
                     end if;
                 end if;
             end if;
@@ -158,11 +142,9 @@ begin
         if rising_edge(m_clock) then
             if m_reset = '1' then
                 m_curr_state <= idle;
-                m_prev_state <= idle;
                 m_busy_flag <= '0';
                 m_point_up_left <= (others => '0');
                 m_point_up_right <= (others => '0');
-                m_point_down_left <= (others => '0');
                 m_point_down_right <= (others => '0');
                 m_curr_point <= (others => '0');
                 m_data_ready <= '0';
@@ -170,6 +152,7 @@ begin
             else
                 case m_curr_state is
                     when idle =>
+                        m_write <= '0';
                         if slv_flag_register(0) = '1' then
                             if unsigned(slv_point_up_left(31 downto 16)) < screen_width and
                                 unsigned(slv_point_up_left(15 downto 0)) < screen_height and
@@ -180,7 +163,6 @@ begin
                                         m_busy_flag <= '1';
                                         m_point_up_left <= to_unsigned(screen_width, 10) * resize((unsigned(slv_point_up_left(25 downto 16))), 9) + resize(unsigned(slv_point_up_left(15 downto 0)), 19);
                                         m_point_up_right <= to_unsigned(screen_width, 10) * resize((unsigned(slv_point_up_left(25 downto 16))), 9) + resize(unsigned(slv_point_down_right(15 downto 0)), 19);
-                                        m_point_down_left <= to_unsigned(screen_width, 10) * resize((unsigned(slv_point_down_right(25 downto 16))), 9) + resize(unsigned(slv_point_up_left(15 downto 0)), 19);
                                         m_point_down_right <= to_unsigned(screen_width, 10) * resize((unsigned(slv_point_down_right(25 downto 16))), 9) + resize(unsigned(slv_point_down_right(15 downto 0)), 19);
                                         if slv_point_up_left(4 downto 0) = "00000" then
                                             m_curr_state <= write_word;
@@ -193,55 +175,45 @@ begin
                         end if;
                         
                     when read_word =>
-                        if (m_point_up_right - m_curr_point > 31) then
-                            m_data_prepared <= (m_data_witdh - 1 downto to_integer(m_curr_point) => '1', others => '0');
+                        m_write <= '0';
+                        if (m_point_up_right - m_curr_point >= 31) then
+                            for i in 0 to 2**(m_data_witdh - 1) loop
+                                if i >= to_integer(m_curr_point(4 downto 0)) then
+                                    m_data_prepared(i) <= '1';
+                                else
+                                    m_data_prepared(i) <= '0';
+                                end if;
+                            end loop;
                         else
-                            m_data_prepared <= (to_integer(m_point_up_right) downto 0 => '1', others => '0');
+                            for i in 0 to 2**(m_data_witdh - 1) loop
+                                if (i <= to_integer(m_point_up_right(4 downto 0))) and (i >= to_integer(m_curr_point(4 downto 0))) then
+                                    m_data_prepared(i) <= '1';
+                                else
+                                    m_data_prepared(i) <= '0';
+                                end if;
+                            end loop;
                         end if;
---                        avalon_master_read(std_logic_vector(m_curr_point(18 downto 3)));
                         m_read <= '1';
                         m_address <= std_logic_vector(m_curr_point(18 downto 3));
                         m_curr_state <= read_delay;
 
                     when read_delay =>
+                        m_data_ready <= '1';
                         m_read <= '0';
                         m_curr_state <= write_word;
                         
                     when write_word =>
                         if m_curr_point(4 downto 0) = "00000" then
                             if (m_point_up_right - m_curr_point > 31) then
-                                avalon_master_write((others => '1'), std_logic_vector(m_curr_point(18 downto 3)));
+                                m_write <= '1';
+                                m_writedata <= (others => '1');
+                                m_address <= std_logic_vector(m_curr_point(18 downto 3));
                                 m_curr_point <= m_curr_point + 32;
                                 m_curr_state <= write_word;
                             elsif (m_point_up_right - m_curr_point = 31) then
-                                avalon_master_write((others => '1'), std_logic_vector(m_curr_point(18 downto 3)));
-                            else
-                                if (m_data_ready = '1') then
---                                    avalon_master_write;
-                                else
-                                    m_curr_state <= read_word;
-                                end if;
-                            end if;
-                            
-                            if m_point_up_right = m_point_down_right then
-                                m_curr_state <= idle;
-                                m_busy_flag <= '0';
-                            else
-                                m_curr_point <= m_Point_up_left + 640;
-                                m_point_up_right <= m_point_up_right + 640;
-                                m_point_up_left <= m_point_up_left + 640;
-                                m_curr_state <= write_word;
-                            end if;
-                      
-                        else
-                            if (m_point_up_right - m_curr_point > 31) then
-                                avalon_master_write(m_readdata or m_data_prepared, std_logic_vector(m_curr_point(18 downto 3)));
-                                m_curr_point <= (m_curr_point(18 downto 3) & "000") + 32;
-                                m_curr_state <= write_word;
-                            elsif (m_point_up_right - m_curr_point = 31) then
-
-                            else
-                                avalon_master_write(m_readdata or m_data_prepared, std_logic_vector(m_curr_point(18 downto 3)));
+                                m_write <= '1';
+                                m_writedata <= (others => '1');
+                                m_address <= std_logic_vector(m_curr_point(18 downto 3));
                                 if m_point_up_right = m_point_down_right then
                                     m_curr_state <= idle;
                                     m_busy_flag <= '0';
@@ -251,8 +223,51 @@ begin
                                     m_point_up_left <= m_point_up_left + 640;
                                     m_curr_state <= write_word;
                                 end if;
-                            end if;  
-
+                            else
+                                if (m_data_ready = '1') then
+                                    m_write <= '1';
+                                    m_writedata <= m_readdata or m_data_prepared;
+                                    m_address <= std_logic_vector(m_curr_point(18 downto 3));
+                                    if m_point_up_right = m_point_down_right then
+                                        m_curr_state <= idle;
+                                        m_busy_flag <= '0';
+                                    else
+                                        m_curr_point <= m_Point_up_left + 640;
+                                        m_point_up_right <= m_point_up_right + 640;
+                                        m_point_up_left <= m_point_up_left + 640;
+                                        m_curr_state <= write_word;
+                                    end if; 
+                                    m_data_ready <= '0';
+                                else
+                                    m_curr_state <= read_word;
+                                end if;
+                            end if;
+                        else
+                            if m_data_ready = '1' then
+                                if (m_point_up_right - m_curr_point >= 31) then
+                                    m_write <= '1';
+                                    m_writedata <= m_readdata or m_data_prepared;
+                                    m_address <= std_logic_vector(m_curr_point(18 downto 3));
+                                    m_curr_point <= (m_curr_point(18 downto 3) & "000") + 32;
+                                    m_curr_state <= write_word;
+                                else
+                                    m_write <= '1';
+                                    m_writedata <= m_readdata or m_data_prepared;
+                                    m_address <= std_logic_vector(m_curr_point(18 downto 3));
+                                    if m_point_up_right = m_point_down_right then
+                                        m_curr_state <= idle;
+                                        m_busy_flag <= '0';
+                                    else
+                                        m_curr_point <= m_Point_up_left + 640;
+                                        m_point_up_right <= m_point_up_right + 640;
+                                        m_point_up_left <= m_point_up_left + 640;
+                                        m_curr_state <= write_word;
+                                    end if;
+                                end if;
+                                m_data_ready <= '0';
+                            else
+                                m_curr_state <= read_word;
+                            end if;
                         end if;
                     
                     when others =>
