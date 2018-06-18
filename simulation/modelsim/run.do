@@ -16,6 +16,7 @@ add wave -noupdate /tb_gpu/uut/m_write
 add wave -noupdate -radix hex /tb_gpu/uut/m_address
 add wave -noupdate /tb_gpu/uut/m_writedata
 add wave -noupdate /tb_gpu/uut/m_readdata
+add wave -noupdate /tb_gpu/uut/m_waitrequest
 
 add wave -noupdate /tb_gpu/uut/m_busy_flag
 add wave -noupdate -radix dec /tb_gpu/uut/m_point_up_left

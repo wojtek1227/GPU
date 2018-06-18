@@ -29,15 +29,16 @@ entity gpu is
         slv_readdata    : out std_logic_vector(31 downto 0);
 
         --Avalon MM Master interface
-        m_clock     : in std_logic;
-        m_reset     : in std_logic;
+        m_clock         : in std_logic;
+        m_reset         : in std_logic;
         
-        m_read      : out std_logic;
-        m_write     : out std_logic;
+        m_waitrequest   : in std_logic;
+        m_read          : out std_logic;
+        m_write         : out std_logic;
         
-        m_address   : out std_logic_vector(m_address_width - 1 downto 0);
-        m_writedata : out std_logic_vector(m_data_witdh - 1 downto 0);
-        m_readdata  : in std_logic_vector(m_data_witdh - 1 downto 0)
+        m_address       : out std_logic_vector(m_address_width - 1 downto 0);
+        m_writedata     : out std_logic_vector(m_data_witdh - 1 downto 0);
+        m_readdata      : in std_logic_vector(m_data_witdh - 1 downto 0)
         
         
     );
@@ -204,7 +205,11 @@ begin
                         end if;
                         m_read <= '1';
                         m_address <= std_logic_vector(m_curr_point(18 downto 3));
-                        m_curr_state <= read_delay;
+                        if m_waitrequest = '1' then
+                            m_curr_state <= read_word;
+                        else
+                            m_curr_state <= read_delay;
+                        end if;
 
                     when read_delay =>
                         m_data_ready <= '1';
@@ -217,26 +222,15 @@ begin
                                 m_write <= '1';
                                 m_writedata <= (others => '1');
                                 m_address <= std_logic_vector(m_curr_point(18 downto 3));
-                                m_curr_point <= m_curr_point + 32;
+                                if m_waitrequest = '0' then
+                                    m_curr_point <= m_curr_point + 32;
+                                end if;
                                 m_curr_state <= write_word;
                             elsif (m_point_up_right - m_curr_point = 31) then
                                 m_write <= '1';
                                 m_writedata <= (others => '1');
                                 m_address <= std_logic_vector(m_curr_point(18 downto 3));
-                                if m_point_up_right = m_point_down_right then
-                                    m_curr_state <= idle;
-                                    m_busy_flag <= '0';
-                                else
-                                    m_curr_point <= m_Point_up_left + 640;
-                                    m_point_up_right <= m_point_up_right + 640;
-                                    m_point_up_left <= m_point_up_left + 640;
-                                    m_curr_state <= write_word;
-                                end if;
-                            else
-                                if (m_data_ready = '1') then
-                                    m_write <= '1';
-                                    m_writedata <= m_readdata or m_data_prepared;
-                                    m_address <= std_logic_vector(m_curr_point(18 downto 3));
+                                if m_waitrequest = '0' then
                                     if m_point_up_right = m_point_down_right then
                                         m_curr_state <= idle;
                                         m_busy_flag <= '0';
@@ -245,8 +239,25 @@ begin
                                         m_point_up_right <= m_point_up_right + 640;
                                         m_point_up_left <= m_point_up_left + 640;
                                         m_curr_state <= write_word;
-                                    end if; 
-                                    m_data_ready <= '0';
+                                    end if;
+                                end if;
+                            else
+                                if (m_data_ready = '1') then
+                                    m_write <= '1';
+                                    m_writedata <= m_readdata or m_data_prepared;
+                                    m_address <= std_logic_vector(m_curr_point(18 downto 3));
+                                    if m_waitrequest = '0' then
+                                        if m_point_up_right = m_point_down_right then
+                                            m_curr_state <= idle;
+                                            m_busy_flag <= '0';
+                                        else
+                                            m_curr_point <= m_Point_up_left + 640;
+                                            m_point_up_right <= m_point_up_right + 640;
+                                            m_point_up_left <= m_point_up_left + 640;
+                                            m_curr_state <= write_word;
+                                        end if; 
+                                        m_data_ready <= '0';
+                                    end if;
                                 else
                                     m_curr_state <= read_word;
                                 end if;
@@ -257,20 +268,24 @@ begin
                                     m_write <= '1';
                                     m_writedata <= m_readdata or m_data_prepared;
                                     m_address <= std_logic_vector(m_curr_point(18 downto 3));
-                                    m_curr_point <= (m_curr_point(18 downto 3) & "000") + 32;
-                                    m_curr_state <= write_word;
+                                    if m_waitrequest = '0' then
+                                        m_curr_point <= (m_curr_point(18 downto 3) & "000") + 32;
+                                        m_curr_state <= write_word;
+                                    end if;
                                 else
                                     m_write <= '1';
                                     m_writedata <= m_readdata or m_data_prepared;
                                     m_address <= std_logic_vector(m_curr_point(18 downto 3));
-                                    if m_point_up_right = m_point_down_right then
-                                        m_curr_state <= idle;
-                                        m_busy_flag <= '0';
-                                    else
-                                        m_curr_point <= m_Point_up_left + 640;
-                                        m_point_up_right <= m_point_up_right + 640;
-                                        m_point_up_left <= m_point_up_left + 640;
-                                        m_curr_state <= write_word;
+                                    if m_waitrequest = '0' then
+                                        if m_point_up_right = m_point_down_right then
+                                            m_curr_state <= idle;
+                                            m_busy_flag <= '0';
+                                        else
+                                            m_curr_point <= m_Point_up_left + 640;
+                                            m_point_up_right <= m_point_up_right + 640;
+                                            m_point_up_left <= m_point_up_left + 640;
+                                            m_curr_state <= write_word;
+                                        end if;
                                     end if;
                                 end if;
                                 m_data_ready <= '0';

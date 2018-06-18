@@ -17,23 +17,24 @@ end tb_gpu;
 architecture tb_arch of tb_gpu is
 
 	component gpu
-		port (
-		m_address : out std_logic_vector(15 downto 0);
-		m_clock : in std_logic;
-		m_read : out std_logic;
-		m_readdata : in std_logic_vector(31 downto 0);
-		m_reset : in std_logic;
-		m_write : out std_logic;
-		m_writedata : out std_logic_vector(31 downto 0);
-		slv_address : in std_logic_vector(1 downto 0);
-		slv_byteenable : in std_logic_vector(3 downto 0);
-		slv_clock : in std_logic;
-		slv_read : in std_logic;
-		slv_readdata : out std_logic_vector(31 downto 0);
-		slv_reset : in std_logic;
-		slv_write : in std_logic;
-		slv_writedata : in std_logic_vector(31 downto 0)
-		);
+		port(
+		slv_clock		:	 in std_logic;
+		slv_reset		:	 in std_logic;
+		slv_read		:	 in std_logic;
+		slv_write		:	 in std_logic;
+		slv_address		:	 in std_logic_vector(1 downto 0);
+		slv_writedata   :	 in std_logic_vector(31 downto 0);
+		slv_byteenable  :	 in std_logic_vector(3 downto 0);
+		slv_readdata    :	 out std_logic_vector(31 downto 0);
+		m_clock		    :	 in std_logic;
+		m_reset		    :	 in std_logic;
+		m_waitrequest   :	 in std_logic;
+		m_read		    :	 out std_logic;
+		m_write		    :	 out std_logic;
+		m_address       :	 out std_logic_vector(15 downto 0);
+		m_writedata		:	 out std_logic_vector(31 downto 0);
+		m_readdata		:	 in std_logic_vector(31 downto 0)
+        );
 	end component;
 	
 	-- constants
@@ -50,6 +51,7 @@ architecture tb_arch of tb_gpu is
 	signal m_clock          : std_logic;
 	signal m_readdata       : std_logic_vector(31 downto 0);
 	signal m_reset          : std_logic;
+    signal m_waitrequest    : std_logic;
 	
     signal slv_address      : std_logic_vector(1 downto 0);
 	signal slv_byteenable   : std_logic_vector(3 downto 0);
@@ -81,6 +83,7 @@ begin
 			m_reset => m_reset,
 			m_write => m_write,
 			m_writedata => m_writedata,
+            m_waitrequest => m_waitrequest,
 			slv_address => slv_address,
 			slv_byteenable => slv_byteenable,
 			slv_clock => slv_clock,
@@ -122,6 +125,7 @@ begin
             writeline(output, l);
             m_reset <= '0';
             m_readdata <= (others => '0');
+            m_waitrequest <= '0';
         end init_master;
         
         procedure init_slave is
