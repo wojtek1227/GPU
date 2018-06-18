@@ -9,8 +9,8 @@ vsim work.tb_gpu
 view signals
 view wave
 
-add wave -noupdate /tb_gpu/uut/m_clock
-add wave -noupdate /tb_gpu/uut/m_reset
+add wave -noupdate /tb_gpu/uut/clock
+add wave -noupdate /tb_gpu/uut/reset
 add wave -noupdate /tb_gpu/uut/m_read
 add wave -noupdate /tb_gpu/uut/m_write
 add wave -noupdate -radix hex /tb_gpu/uut/m_address
@@ -28,8 +28,6 @@ add wave -noupdate /tb_gpu/uut/m_data_prepared
 
 add wave -noupdate /tb_gpu/uut/m_curr_state
 
-add wave -noupdate /tb_gpu/uut/slv_clock
-add wave -noupdate /tb_gpu/uut/slv_reset
 add wave -noupdate /tb_gpu/uut/slv_read
 add wave -noupdate /tb_gpu/uut/slv_write
 add wave -noupdate /tb_gpu/uut/slv_address

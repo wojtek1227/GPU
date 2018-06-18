@@ -15,10 +15,10 @@ entity gpu is
     );
     port
     (
-        --Avalon MM Slave interface
-        slv_clock       : in std_logic;
-        slv_reset      : in std_logic;
+        clock           : in std_logic;
+        reset           : in std_logic;
             
+        --Avalon MM Slave interface
         slv_read        : in std_logic;
         slv_write       : in std_logic;
 
@@ -28,10 +28,7 @@ entity gpu is
         
         slv_readdata    : out std_logic_vector(31 downto 0);
 
-        --Avalon MM Master interface
-        m_clock         : in std_logic;
-        m_reset         : in std_logic;
-        
+        --Avalon MM Master interface      
         m_waitrequest   : in std_logic;
         m_read          : out std_logic;
         m_write         : out std_logic;
@@ -68,11 +65,11 @@ begin
 
     slv_flag_register(16) <= m_busy_flag;
     
-    slave_registers: process(slv_clock)
+    slave_registers: process(clock)
 
     begin
-        if rising_edge(slv_clock) then
-            if slv_reset = '1' then
+        if rising_edge(clock) then
+            if reset = '1' then
                 slv_point_up_left <= (others => '0');
                 slv_point_down_right <= (others => '0');
                 slv_flag_register(15 downto 0) <= (others => '0');
@@ -140,11 +137,11 @@ begin
         end if;        
     end process;
     
-    gpu: process(m_clock)
+    gpu: process(clock)
  
     begin
-        if rising_edge(m_clock) then
-            if m_reset = '1' then
+        if rising_edge(clock) then
+            if reset = '1' then
                 m_read <= '0';
                 m_write <= '0';
                 m_address <= (others => '0');

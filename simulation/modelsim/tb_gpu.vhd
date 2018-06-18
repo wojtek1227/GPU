@@ -18,16 +18,14 @@ architecture tb_arch of tb_gpu is
 
 	component gpu
 		port(
-		slv_clock		:	 in std_logic;
-		slv_reset		:	 in std_logic;
 		slv_read		:	 in std_logic;
 		slv_write		:	 in std_logic;
 		slv_address		:	 in std_logic_vector(1 downto 0);
 		slv_writedata   :	 in std_logic_vector(31 downto 0);
 		slv_byteenable  :	 in std_logic_vector(3 downto 0);
 		slv_readdata    :	 out std_logic_vector(31 downto 0);
-		m_clock		    :	 in std_logic;
-		m_reset		    :	 in std_logic;
+		clock		    :	 in std_logic;
+		reset		    :	 in std_logic;
 		m_waitrequest   :	 in std_logic;
 		m_read		    :	 out std_logic;
 		m_write		    :	 out std_logic;
@@ -38,7 +36,7 @@ architecture tb_arch of tb_gpu is
 	end component;
 	
 	-- constants
-	constant clk_period     : time := 10 ns;
+	constant clock_period     : time := 10 ns;
     
     --types
     
@@ -46,18 +44,15 @@ architecture tb_arch of tb_gpu is
 
 	
 	--stimulus signals
-    signal clk              : std_logic;
 	
-	signal m_clock          : std_logic;
+	signal clock          : std_logic;
 	signal m_readdata       : std_logic_vector(31 downto 0);
-	signal m_reset          : std_logic;
+	signal reset          : std_logic;
     signal m_waitrequest    : std_logic;
 	
     signal slv_address      : std_logic_vector(1 downto 0);
 	signal slv_byteenable   : std_logic_vector(3 downto 0);
-	signal slv_clock        : std_logic;
 	signal slv_read         : std_logic;
-	signal slv_reset       : std_logic;
 	signal slv_write        : std_logic;
 	signal slv_writedata    : std_logic_vector(31 downto 0);
 
@@ -77,27 +72,20 @@ begin
 		port map 
 		(
 			m_address => m_address,
-			m_clock => m_clock,
+			clock => clock,
 			m_read => m_read,
 			m_readdata => m_readdata,
-			m_reset => m_reset,
+			reset => reset,
 			m_write => m_write,
 			m_writedata => m_writedata,
             m_waitrequest => m_waitrequest,
 			slv_address => slv_address,
 			slv_byteenable => slv_byteenable,
-			slv_clock => slv_clock,
 			slv_read => slv_read,
 			slv_readdata => slv_readdata,
-			slv_reset => slv_reset,
 			slv_write => slv_write,
 			slv_writedata => slv_writedata
-		);
-		
-        
-    m_clock <= clk;
-    slv_clock <= clk;
-    
+		);   
     
     stimulus : process 
     
@@ -123,7 +111,7 @@ begin
             writeline(output, l);
             write(l, string'("----Init_master----" & to_string(now, UNIT => ns)));
             writeline(output, l);
-            m_reset <= '0';
+            reset <= '0';
             m_readdata <= (others => '0');
             m_waitrequest <= '0';
         end init_master;
@@ -134,8 +122,6 @@ begin
             writeline(output, l);
             write(l, string'("----Init_slave----" & to_string(now, UNIT => ns)));
             writeline(output, l);
-            m_reset <= '0';
-            slv_reset <= '0';
             slv_read <= '0';
             slv_write <= '0';
             slv_address <= (others => '0');
@@ -149,13 +135,10 @@ begin
             writeline(output, l);
             write(l, string'("----Test_reset @: " & to_string(now, UNIT => ns)));
             writeline(output, l);
-            wait until falling_edge(clk);
-            m_reset <= '0';
-            m_reset <= '1';
-            slv_reset <= '1';
-            wait until falling_edge(clk);
-            m_reset <= '0';
-            slv_reset <= '0';
+            wait until falling_edge(clock);
+            reset <= '1';
+            wait until falling_edge(clock);
+            reset <= '0';
         end test_reset;
         
         procedure test_slv_write
@@ -165,7 +148,7 @@ begin
         variable l : line;
 
         begin
-            wait until falling_edge(clk);
+            wait until falling_edge(clock);
             writeline(output, l);
             write(l, string'("----Test_write_slave start @: " & to_string(now, UNIT => ns)));
             writeline(output, l);
@@ -174,19 +157,19 @@ begin
             slv_writedata <= data_at_00;
             slv_byteenable <= (others => '1');
             
-            wait until falling_edge(clk);
+            wait until falling_edge(clock);
             assert (slv_point_up_left = data_at_00) report "writing to 00 failed" severity error;
             
             slv_address <= "01";
             slv_writedata <= data_at_01;
-            wait until falling_edge(clk);
+            wait until falling_edge(clock);
             assert (slv_point_down_right = data_at_01) report "writing to 01 failed" severity error;
             
             slv_address <= "10";
             slv_writedata <= data_at_10;
             slv_byteenable <= "0001";
             
-            wait until falling_edge(clk);
+            wait until falling_edge(clock);
             slv_write <= '0';
             assert (slv_flag_register(16 downto 0) = data_at_10(16 downto 0)) report "writing to 10 failed" severity error;
             writeline(output, l);
@@ -199,7 +182,7 @@ begin
         variable l : line;
         
         begin
-            wait until falling_edge(clk);
+            wait until falling_edge(clock);
             writeline(output, l);
             write(l, string'("----Test_case_1a start @: " & to_string(now, UNIT => ns)));
             writeline(output, l);
@@ -216,7 +199,7 @@ begin
         variable l : line;
         
         begin
-            wait until falling_edge(clk);
+            wait until falling_edge(clock);
             writeline(output, l);
             write(l, string'("----Test_case_1b start @: " & to_string(now, UNIT => ns)));
             writeline(output, l);
@@ -232,7 +215,7 @@ begin
         variable l : line;
         
         begin
-            wait until falling_edge(clk);
+            wait until falling_edge(clock);
             writeline(output, l);
             write(l, string'("----Test_case_2a start @: " & to_string(now, UNIT => ns)));
             writeline(output, l);
@@ -248,7 +231,7 @@ begin
         variable l : line;
         
         begin
-            wait until falling_edge(clk);
+            wait until falling_edge(clock);
             writeline(output, l);
             write(l, string'("----Test_case_2b start @: " & to_string(now, UNIT => ns)));
             writeline(output, l);
@@ -264,7 +247,7 @@ begin
         variable l : line;
         
         begin
-            wait until falling_edge(clk);
+            wait until falling_edge(clock);
             writeline(output, l);
             write(l, string'("----Test_case_3a start @: " & to_string(now, UNIT => ns)));
             writeline(output, l);
@@ -280,7 +263,7 @@ begin
         variable l : line;
         
         begin
-            wait until falling_edge(clk);
+            wait until falling_edge(clock);
             writeline(output, l);
             write(l, string'("----Test_case_3b start @: " & to_string(now, UNIT => ns)));
             writeline(output, l);
@@ -296,7 +279,7 @@ begin
         variable l : line;
         
         begin
-            wait until falling_edge(clk);
+            wait until falling_edge(clock);
             writeline(output, l);
             write(l, string'("----Test_case_4a start @: " & to_string(now, UNIT => ns)));
             writeline(output, l);
@@ -312,7 +295,7 @@ begin
         variable l : line;
         
         begin
-            wait until falling_edge(clk);
+            wait until falling_edge(clock);
             writeline(output, l);
             write(l, string'("----Test_case_4b start @: " & to_string(now, UNIT => ns)));
             writeline(output, l);
@@ -328,7 +311,7 @@ begin
         variable l : line;
         
         begin
-            wait until falling_edge(clk);
+            wait until falling_edge(clock);
             writeline(output, l);
             write(l, string'("----Test_case_5a start @: " & to_string(now, UNIT => ns)));
             writeline(output, l);
@@ -344,7 +327,7 @@ begin
         variable l : line;
         
         begin
-            wait until falling_edge(clk);
+            wait until falling_edge(clock);
             writeline(output, l);
             write(l, string'("----Test_case_5b start @: " & to_string(now, UNIT => ns)));
             writeline(output, l);
@@ -360,7 +343,7 @@ begin
         variable l : line;
         
         begin
-            wait until falling_edge(clk);
+            wait until falling_edge(clock);
             writeline(output, l);
             write(l, string'("----Test_case_6a start @: " & to_string(now, UNIT => ns)));
             writeline(output, l);
@@ -376,7 +359,7 @@ begin
         variable l : line;
         
         begin
-            wait until falling_edge(clk);
+            wait until falling_edge(clock);
             writeline(output, l);
             write(l, string'("----Test_case_6b start @: " & to_string(now, UNIT => ns)));
             writeline(output, l);
@@ -391,7 +374,7 @@ begin
 	begin
         init_master;
         init_slave;
-        wait until falling_edge(clk);
+        wait until falling_edge(clock);
         test_reset;
         test_slv_write((others => '0'), X"0000_003f", X"0000_0001");
         
@@ -427,17 +410,17 @@ begin
 	end process stimulus; 
 
 	
-	clk_process : process
+	clock_process : process
 	begin
 		if end_sim = false then
-			clk <= '0';
-			wait for clk_period/2;
+			clock <= '0';
+			wait for clock_period/2;
 		else
 			wait;
 		end if;
 		if end_sim = false then
-			clk <= '1';
-			wait for clk_period/2;
+			clock <= '1';
+			wait for clock_period/2;
 		else
 			wait;
 		end if;
